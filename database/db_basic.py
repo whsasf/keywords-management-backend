@@ -58,16 +58,69 @@ async def list_collection_names(dbName,collectionName):
     collectionHandler = dbHandler[collectionName]
     return collectionHandler.list_collection_names()
 
-async def find (dbName,collectionName,skipValue = 0,limitValue = 10 ,queryDict={}):
+async def find (dbName,collectionName,xfilter={},xshown={},xsort=[],skipValue=0,limitValue=0):
     """
     查找所有符合条件的数据行
+    dbName:  dbname
+    collectionName: collection name
+    xfilter: 查询字段 {'name':'ram'}
+    xshown: 需要过滤返回的字段 {'_id':0,name:1}  代表只返回 name字段
+    xsort： 需要排序的字段以及排序方式 [(a,1),(b,-1)]
+    skipValue： skip的数目
+    limitValue: 返回的数目
     """
-    print('skip,limit',skipValue,limitValue)
+
     dbHandler = client[dbName]
     collectionHandler = dbHandler[collectionName]
-    result = json_util.dumps(collectionHandler.find(queryDict).skip(skipValue).limit(limitValue))
+    if xshown == {}: # 全部字段显示返回
+        if xsort == []: # 无排序
+            result = json_util.dumps(collectionHandler.find(xfilter).skip(skipValue).limit(limitValue))
+        else: # 有排序
+            result = json_util.dumps(collectionHandler.find(xfilter).sort(xsort).skip(skipValue).limit(limitValue))
+    else: # 筛选返回
+         if xsort == []: # 无排序
+            result = json_util.dumps(collectionHandler.find(xfilter,xshown).skip(skipValue).limit(limitValue))
+         else: # 有排序
+            result = json_util.dumps(collectionHandler.find(xfilter,xshown).sort(xsort).skip(skipValue).limit(limitValue))
     return result
 
+
+async def find_one (dbName,collectionName,xfilter={},xshown={},xsort=[],skipValue=0,limitValue=1):
+    """
+    查找第一个符合条件的数据行
+    dbName:  dbname
+    collectionName: collection name
+    xfilter: 查询字段 {'name':'ram'}
+    xshown: 需要过滤返回的字段 {'_id':0,name:1}  代表只返回 name字段
+    xsort： 需要排序的字段以及排序方式 [(a,1),(b,-1)]
+    skipValue： skip的数目
+    limitValue: 返回的数目
+    """
+
+    dbHandler = client[dbName]
+    collectionHandler = dbHandler[collectionName]
+    if xshown == {}: # 全部字段显示返回
+        if xsort == []: # 无排序
+            result = json_util.dumps(collectionHandler.find(xfilter).skip(skipValue).limit(limitValue))
+        else: # 有排序
+            result = json_util.dumps(collectionHandler.find(xfilter).sort(xsort).skip(skipValue).limit(limitValue))
+    else: # 筛选返回
+         if xsort == []: # 无排序
+            result = json_util.dumps(collectionHandler.find(xfilter,xshown).skip(skipValue).limit(limitValue))
+         else: # 有排序
+            result = json_util.dumps(collectionHandler.find(xfilter,xshown).sort(xsort).skip(skipValue).limit(limitValue))
+    return result
+
+
+async def findCount(dbName,collectionName,xfilter={}):
+    """
+    查找所有符合条件的 文档的数目
+    """
+    dbHandler = client[dbName]
+    collectionHandler = dbHandler[collectionName]
+    result = collectionHandler.find(xfilter).count()
+    print(f'{dbName}->{collectionName}总共有{result}条符合条件的数据')
+    return result
 
 async def find_one (dbName,collectionName,queryDict={},showDict={}):
     """
@@ -106,7 +159,7 @@ async def insert_one(dbName,collectionName,data):
         print(e)
         return 'project-unknownError'
 
-async def insert_many(dbName,collectionName,datalist):
+async def insert_many(dbName,collectionName,data2insert):
     """
     数据库表中插入 多行数据
     """
@@ -117,8 +170,8 @@ async def insert_many(dbName,collectionName,datalist):
     elif collectionName == 'User':
         collectionHandler.create_index([('account',1)],unique = True, background = True)
     try:
-        print('datalist',datalist)
-        results =  collectionHandler.insert_many(datalist)
+        print('data2insert',data2insert)
+        results =  collectionHandler.insert_many(data2insert)
         # print(results.inserted_ids)
         # 成功: 返回插入的数据行数
         return len(results.inserted_ids)

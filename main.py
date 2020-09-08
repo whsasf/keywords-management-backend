@@ -2,7 +2,7 @@ from typing import Optional
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from myrouters import projects,categories,account
+from myrouters import projects,categories,account,urls
 from database.db_advanced import dbinit
 
 import uvicorn
@@ -13,6 +13,7 @@ app = FastAPI()
 app.include_router(projects.router, prefix="/Projects")
 # app.include_router(categories.router, prefix="/Categories")
 app.include_router(account.router, prefix="/Account")
+app.include_router(urls.router, prefix="/Urls")
 
 # 设定静态目录
 app.mount("/static", StaticFiles(directory="static"), name="static")

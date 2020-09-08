@@ -5,7 +5,7 @@ from typing import List, Optional
 from datetime import date, datetime, time, timedelta
 import time
 from bson import ObjectId
-from database.db_advanced import createnewproject, fetchAllProjects,updateProject, deleteProject, fetchAllProjectsCount, updateCategory, deleteCategory, createCategory
+from database.db_advanced import createnewproject, fetchAllProjects,updateProject, fetchAllProjects, deleteProject, updateCategory, deleteCategory, createCategory
 
 router = APIRouter()
 dbPrefix = 'KWM'
@@ -44,7 +44,7 @@ async def create_project(project: Project):
     # 1 插入时间戳
     projectnew = project.dict()
     projectnew['timestamp'] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) #getBJTime()
-    # print(project.dict())
+    # print('projectsnew',projectsnew)
     # 2 写入数据库
     result = await createnewproject(dbPrefix,'Project',projectnew)
     # print(result)
@@ -84,8 +84,7 @@ async def update_project(*,projectId: str = Path(...), updateProjectInfo: Update
 @router.delete("/{projectId}")
 async def delete_project(*,projectId: str = Path(...)):
     # 删除项目: 
-    print('projectId',projectId)
-    
+    #print('projectId',projectId)
     queryDict = {'_id': ObjectId(projectId)}
     result = await deleteProject(dbPrefix,'Project',queryDict)
     return (result)

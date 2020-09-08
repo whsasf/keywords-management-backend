@@ -1,4 +1,4 @@
-from .db_basic import dbinit, insert_one, insert_many, find, find_one, update_one, copy_database, drop_database, delete_one
+from .db_basic import dbinit, insert_one, insert_many, find,findCount, find_one, update_one, copy_database, drop_database, delete_one
 import json
 from bson import json_util
 from utilities.jwtTools import createJWT, verifyJWT
@@ -21,11 +21,28 @@ from utilities.jwtTools import createJWT, verifyJWT
 dbinit()
 dbPrefix = 'KWM'
 
-# 新项目创建
+# Projects 相关 高级 函数
+
+async def fetchAllProjects(currentpage = 1, pagesize =10 ,returnTotalCount=True):
+    # 1- 获取 Project表内容
+    result1 = await fetchTable(dbPrefix,'Project',currentpage=currentpage, pagesize =pagesize,returnTotalCount=True)
+    #print('result1',type(result1),result1)
+    # result1 形式:  result1 = {'count':count,'content':content}
+    # 2- 因为category 跟 表 Project 是分开的，所以需要分开查找
+    for project in result1['content']:
+        #print('project',project)
+        projectId = project['_id']['$oid']
+        result2 = await fetchTable(dbPrefix + '-' + projectId, 'Categories',currentpage=0, pagesize=0, returnTotalCount=False)
+        #print('xxxxxx',result2)
+        project['categories'] = result2['content']
+    return result1
+
+
 async def createnewproject(dbName,collectionName,projectObjectData):
     # 1- 在Project表添加新项目，如果已经存在，则报错返回
     categotiesData =  projectObjectData.pop('categories')
     result1 = await insert_one(dbName,collectionName,projectObjectData)
+    # result1 形式:  result1 = {'count':count,'content':content}
     if len(result1) == 1:
         # 2-项目创建成功，则创建以该项目命名的数据库，并将Categories 写入 Categories 表格 
         # dbName2 = projectObjectData['projectName']
@@ -42,39 +59,53 @@ async def createnewproject(dbName,collectionName,projectObjectData):
         if isinstance(result2,int):
             print('result25',result2)
             # 成功,则读取所有项目及目录信息并返回: result3: 项目 ，resukt4: 目录
-            return await fetchAllProjects(returnTotalCount=True)
+            return await fetchAllProjects(currentpage=1, pagesize=10 ,returnTotalCount=True)
         else: 
             return result2
     else:
         return result1
 
-async def fetchAllProjects (currentpage=1, pagesize=10, returnTotalCount=False):
+async def fetchTable (dbName,collectionName,xfilter={},xshown={},xsort=[],currentpage=1, pagesize=10, returnTotalCount=True):
     # 1 读取所有项目数目
     if returnTotalCount:
-        print('需要总数')
-        result1 = await fetchAllProjectsCount()
+        result1 = await findCount(dbName,collectionName,xfilter)
     else:
         result1 = ''
-    # 2 读取所有的项目信息
+    # 2 读取所有的表信息
     skipValue = (currentpage -1) * pagesize
     limitValue = pagesize
     print('skipValue',skipValue,limitValue)
-    result2 = json.loads(await find(dbPrefix, 'Project',skipValue = skipValue, limitValue = limitValue))
-    for element in result2:
-        projectname = element['projectName']
-        projectid = element['_id']
-        print(projectid)
-        # 获取该 项目中的目录信息
-        category = await find(dbPrefix + '-' +projectid['$oid'], 'Categories')
-        element['categories'] = json.loads(category)
-        # print(element)
+    result2 =  json.loads(await find(dbName,collectionName,xfilter=xfilter,xshown=xshown,xsort=xsort,skipValue = skipValue, limitValue = limitValue))
+    # 添加 ID
+    initID = 1
+    for ele in result2:
+        ele['id'] = skipValue + initID
+        initID += 1
+    #print('xxxx',result2)
     return ({'count':result1,'content':result2})
 
-async def fetchAllProjectsCount():
-    # 读取所有的项目信息
-    result1 = json.loads(await find(dbPrefix, 'Project',skipValue = 0, limitValue = 0))
-    print('result1',len(result1))
-    return len(result1)
+#async def fetchTable (dbName,collectionName,xfilter={},xshown={},xsort=[],currentpage=1, pagesize=10, returnTotalCount=True):
+#    # 1 读取所有项目数目
+#    if returnTotalCount:
+#        result1 = await findCount(dbName,collectionName,xfilter)
+#        print(f'{dbName}=>{collectionName}符合条件的项目总数为:{result1}')
+#    else:
+#        result1 = ''
+#    # 2 读取所有的表信息
+#    skipValue = (currentpage -1) * pagesize
+#    limitValue = pagesize
+#    print('skipValue',skipValue,limitValue)
+#    result2 = json.loads(await find(dbName,collectionName,xfilter,xshown,xsort,skipValue = skipValue, limitValue = limitValue))
+#    for element in result2:
+#        projectname = element['projectName']
+#        projectid = element['_id']
+#        print(projectid)
+#        # 获取该 项目中的目录信息
+#        category = await find(dbPrefix + '-' +projectid['$oid'], 'Categories')
+#        element['categories'] = json.loads(category)
+#        # print(element)
+#    return ({'count':result1,'content':result2})
+
 
 async def updateProject(dbName,collectionName,queryDict,setDict):
     #print(setDict)
@@ -83,7 +114,7 @@ async def updateProject(dbName,collectionName,queryDict,setDict):
     result1 = await update_one(dbName,collectionName,queryDict,setDict)
     if result1 == 1:
         # 修改 项目数据库列表成功
-        result2 = await fetchAllProjects()
+        result2 = await fetchAllProjects(currentpage=1, pagesize=10 ,returnTotalCount=True)
         return (result2)
     else:
         return 'error'
@@ -100,7 +131,7 @@ async def deleteProject(dbName,collectionName,queryDict):
         if not result2:
             # 删除数据库成功
             # 3- 拉取所有数据
-            result3 = await fetchAllProjects(returnTotalCount=True)
+            result3 = await fetchAllProjects(currentpage=1, pagesize=10 ,returnTotalCount=True)
             return (result3)
         else:
             return ('error')
@@ -136,7 +167,7 @@ async def createCategory(dbName,collectionName,setDict):
     result1 = await insert_one(dbName,collectionName,setDict)
     if len(result1) == 1:
         # 创建成功
-        result2 = await fetchAllProjects()
+        result2 = await fetchAllProjects(currentpage=1, pagesize=10 ,returnTotalCount=True)
         return (result2)
     else:
         return ('error')
@@ -180,3 +211,31 @@ async def handleSignin(dbName,collectionName,accountInfo):
                 return ('error:没找到部门信息')
             else:
                 return (json.loads(result3)['department'])
+
+
+
+# Urls related high level functions
+
+async def createUrlItems(dbName,collectionName,ItemInfos):
+    # 直接使用 insert_many
+    result1 = await insert_many(dbName,collectionName,ItemInfos)
+    if isinstance(result1,int):
+        print('插入成功')
+        # 获取所有数据(首页) 返回
+        # result2 = await fetchAllProjects(currentpage=1, pagesize=10 ,returnTotalCount=True)
+        result2 = await fetchTable (dbName,collectionName,xfilter={},xshown={},xsort=[],currentpage=1, pagesize=10, returnTotalCount=True)
+        return (result2)
+    else:
+        return('error')
+
+async def findProjectIdFromProjectName(dbName,collectionName,queryDict={},showDict={}):
+    result1 = json.loads(await find_one(dbName,collectionName,queryDict,showDict))
+    #print('result1',result1['_id']['$oid'])
+    projectId = result1['_id']['$oid']
+    return projectId
+
+async def fetchUrlItems(dbName,collectionName,currentpage = 1, pagesize = 10,returnTotalCount=True):
+    # 获取 特定项目 Url表中符合条件的数据
+    result1 = await fetchTable(dbName,collectionName,xfilter={},currentpage=currentpage, pagesize=pagesize, returnTotalCount=True)
+    #print(result1,type(result1))
+    return result1
