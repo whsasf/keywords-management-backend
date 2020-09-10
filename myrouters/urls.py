@@ -5,7 +5,8 @@ from typing import List, Optional, Dict
 from datetime import date, datetime, time, timedelta
 import time
 from bson import ObjectId
-from database.db_advanced import createUrlItems, findProjectIdFromProjectName,fetchUrlItems
+from bson import json_util
+from database.db_advanced import createUrlItems, findProjectIdFromProjectName,fetchUrlItems,updateUrlItems, deleteUrlItems
 
 router = APIRouter()
 dbPrefix = 'KWM'
@@ -21,7 +22,6 @@ class UrlsItemInfo(BaseModel):
     status: str
     urlExcludePath: List
     urlIncludePath: List
-
 
 #@router.patch("/{projectName}/{categoryId}")
 #async def update_category(*,projectName,categoryId: str = Path(...), updateCategoryInfo: UpdateCategoryInfo):
@@ -43,7 +43,7 @@ class UrlsItemInfo(BaseModel):
 #    return (result)
 
 @router.post("/{projectName}")
-async def create_category(*,projectName: str = Path(...),urlsItemInfos:List[UrlsItemInfo]):
+async def create_url(*,projectName: str = Path(...),urlsItemInfos:List[UrlsItemInfo]):
     # Url表中添加 数据 
     print(projectName, urlsItemInfos)
     urlsItemInfos = [urlsItem.dict() for urlsItem in urlsItemInfos]
@@ -58,12 +58,55 @@ async def create_category(*,projectName: str = Path(...),urlsItemInfos:List[Urls
 
 
 @router.get("/{projectName}")
-async def create_category(*,projectName: str = Path(...), currentPage: int = 1, pageSize: int =10):
+async def get_urls(*,projectName: str = Path(...), keyword: Optional[str] = None , currentPage: int = 1, pageSize: int =10):
     # 查询 url表中的数据
-    #print(projectName, currentPage,pageSize)
+    # print(projectName, keyword, currentPage,pageSize)
     # projectName 转 projectId
     projectId = await findProjectIdFromProjectName(dbPrefix,'Project',queryDict={'projectName': projectName},showDict={'_id':1})
     print(projectId)
 
-    result = await fetchUrlItems(dbPrefix+'-'+projectId,'Urls',currentpage=currentPage,pagesize=pageSize)
+    # 配置 queryDict 和 showDict ，依据 目的的不同
+    if keyword == None:
+        # 无关键词查询
+        queryDict={}
+        shownDict={}
+    else:
+        # 有关键词查询
+        queryDict={'rootUrl':{'$regex':keyword,'$options':'i'}}  # 查询包含，且不区分大小写
+        shownDict={'_id':1,'rootUrl':1}
+    # print('queryDict',queryDict,shownDict)
+    result = await fetchUrlItems(dbPrefix+'-'+projectId,'Urls',xfilter=queryDict,xshown =shownDict,  currentpage=currentPage,pagesize=pageSize)
+
+    print(result)
+    return (result)
+
+@router.put("/{projectName}/{urlID}")
+async def update_url(*,projectName,urlID : str = Path(...),urlsItemInfo:UrlsItemInfo):
+    # Url表中添加 数据 
+    # print(projectName, urlID, urlsItemInfo)
+    urlsItemInfo = urlsItemInfo.dict()
+    # 添加时间戳
+    urlsItemInfo['modifiedTime'] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    # projectName 转 projectId
+    projectId = await findProjectIdFromProjectName(dbPrefix,'Project',queryDict={'projectName': projectName},showDict={'_id':1})
+    #result1 = await createUrlItems(dbPrefix+'-'+projectId,'Urls',urlsItemInfos)
+    
+    # 生成urlID, 构造 querydict
+    urlID = ObjectId(urlID)
+    # print('urlID',urlID)
+    result1 = await updateUrlItems(dbPrefix+'-'+projectId,'Urls',queryDict={"_id":urlID},setDict={"$set":urlsItemInfo})
+    return (result1)
+
+
+@router.delete("/{projectName}")
+async def delete_url(*,projectName: str = Path(...),urlID: List[str]):
+    # 查询 url表中的数据,有可能有多个
+    print(projectName, urlID)
+    # projectName 转 projectId
+    projectId = await findProjectIdFromProjectName(dbPrefix,'Project',queryDict={'projectName': projectName},showDict={'_id':1})
+    deleteDictList = []
+    for url in urlID:
+        deleteDict = {'_id': ObjectId(url)}
+        deleteDictList.append(deleteDict)
+    result = await deleteUrlItems(dbPrefix+'-'+projectId,'Urls',deleteDictList)
     return (result)

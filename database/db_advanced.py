@@ -228,14 +228,43 @@ async def createUrlItems(dbName,collectionName,ItemInfos):
     else:
         return('error')
 
+async def updateUrlItems(dbName,collectionName,queryDict={},setDict={}):
+    #print('setDict',dbName,collectionName,setDict,queryDict)
+
+    result1 = await update_one(dbName,collectionName,queryDict=queryDict,setDict=setDict)
+    # print('result1',result1)
+    if result1 == 1:
+        print('插入成功')
+        # 获取所有数据(首页) 返回
+        result2 = await fetchTable (dbName,collectionName,xfilter={},xshown={},xsort=[],currentpage=1, pagesize=10, returnTotalCount=True)
+        return (result2)
+    else:
+        return('error')
+
 async def findProjectIdFromProjectName(dbName,collectionName,queryDict={},showDict={}):
     result1 = json.loads(await find_one(dbName,collectionName,queryDict,showDict))
     #print('result1',result1['_id']['$oid'])
     projectId = result1['_id']['$oid']
     return projectId
 
-async def fetchUrlItems(dbName,collectionName,currentpage = 1, pagesize = 10,returnTotalCount=True):
+async def fetchUrlItems(dbName,collectionName,xfilter={}, xshown={},currentpage = 1, pagesize = 10,returnTotalCount=True):
     # 获取 特定项目 Url表中符合条件的数据
-    result1 = await fetchTable(dbName,collectionName,xfilter={},currentpage=currentpage, pagesize=pagesize, returnTotalCount=True)
+    result1 = await fetchTable(dbName,collectionName,xfilter=xfilter,xshown=xshown,currentpage=currentpage, pagesize=pagesize, returnTotalCount=True)
     #print(result1,type(result1))
     return result1
+
+async def deleteUrlItems (dbName,collectionName,deleteDictList=[]):
+    if deleteDictList == []:
+        # 什么也不删除
+        return ('error')
+    else:
+        # 循环删除
+        try:
+            for ele in deleteDictList:
+                print (ele)
+                result1 = await delete_one(dbName,collectionName,ele)
+            # 成功，刷新列表
+            result2 = await fetchTable(dbName,collectionName)
+            return (result2)
+        except:
+            return ('error')

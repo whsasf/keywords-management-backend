@@ -15,8 +15,14 @@ from bson import json_util
 #  ->表: ignoreDict
 #  ->表: invalidDict
 #  ->表: userDict
+import socket
 
-client = pymongo.MongoClient('mongodb://127.0.0.1:27017/')
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.connect(("8.8.8.8", 80))
+ipaddr = s.getsockname()[0]
+s.close()
+
+client = pymongo.MongoClient(f'mongodb://{ipaddr}:27017/')
 dbPrefix = 'KWM' #keywordsManagement
 
 def dbinit():
@@ -27,6 +33,10 @@ def dbinit():
     2 keywordsManagement -> Project 表中定义的各个数据库 
     """
     print('<<-dbinit begin ...')
+
+    # find localhost IP 
+    
+
     keywordsmanagementDbHandler = client[dbPrefix]
     # 1 数据库: keywordsManagement  -> User | Project
     keywordsManagementDbCollections = keywordsmanagementDbHandler.list_collection_names()
@@ -183,7 +193,7 @@ async def insert_many(dbName,collectionName,data2insert):
         # 其他报错
         return 'category-unknownError'
 
-async def update_one(dbName,collectionName,queryDict,setDict):
+async def update_one(dbName,collectionName,queryDict={},setDict={}):
     dbHandler = client[dbName]
     collectionHandler = dbHandler[collectionName]
     result1 = collectionHandler.update_one(queryDict,setDict)
