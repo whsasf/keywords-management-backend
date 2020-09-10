@@ -77,7 +77,7 @@ async def get_urls(*,projectName: str = Path(...), keyword: Optional[str] = None
     # print('queryDict',queryDict,shownDict)
     result = await fetchUrlItems(dbPrefix+'-'+projectId,'Urls',xfilter=queryDict,xshown =shownDict,  currentpage=currentPage,pagesize=pageSize)
 
-    print(result)
+    #print(result)
     return (result)
 
 @router.put("/{projectName}/{urlID}")
